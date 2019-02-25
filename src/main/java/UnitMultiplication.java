@@ -4,7 +4,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.chain.ChainMapper;
+// import org.apache.hadoop.mapreduce.lib.chain.ChainMapper;
 import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -20,7 +20,7 @@ public class UnitMultiplication {
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
 
-            //input format: fromPage\ttoPage1,toPage2,toPage3
+            //input format: fromPage\t toPage1,toPage2,toPage3...
             //target: build transition matrix unit -> fromPage\t toPage=probability
 
             String[] fromTos = value.toString().trim().split("\t");
@@ -33,7 +33,7 @@ public class UnitMultiplication {
             String outputKey = fromTos[0];
             for (String to: tos){
                 // outputKey: fromId
-                // outputValue: toId=(1/num of tos)
+                // outputValue: toId=(1/num of tos)(the probability is equally distributed)
                 context.write(new Text(outputKey), new Text( to + "=" + (double) 1/tos.length ));
             }
         }
@@ -44,10 +44,10 @@ public class UnitMultiplication {
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
 
-            //input format: Page\tPageRank0
+            //input format: Page\t PageRank0
             //target: write to reducer
             String[] prInit = value.toString().trim().split("\t");
-            //outputKey: websideId
+            //outputKey: toId
             //outputValue: PR0 set to 1
             context.write(new Text(prInit[0]), new Text(prInit[1]));
         }
@@ -65,9 +65,6 @@ public class UnitMultiplication {
 
             // outputKey toPageId
             // outputValye: cellsubPR
-
-            //input key = fromPage value=<toPage=probability..., pageRank>
-            //target: get the unit multiplication
 
             // for same key, there can be multiple input values, toPageId1=prob, toPageId2=prob, .. fromPagePR0
             // thus the value is defined as iterable
@@ -96,18 +93,19 @@ public class UnitMultiplication {
         // setup configuration
         Configuration conf = new Configuration();
         Job job = Job.getInstance(conf);
+        // job.setJarByClass()
         // assign the java class to the job,
         // help hadoop to find out that which jar it should send to nodes to performance map and reduce
         job.setJarByClass(UnitMultiplication.class);
 
-        //how chain two mapper classes?
-        // the subclass already in this class, no need to write UnitMultiplication.PRMapper.class
+        // two Mappers
         job.setMapperClass(TransitionMapper.class);
         job.setMapperClass(PRMapper.class);
         job.setReducerClass(MultiplicationReducer.class);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
+
         // two mapper needs two path as inputs
         MultipleInputs.addInputPath(job, new Path(args[0]), TextInputFormat.class, TransitionMapper.class);
         MultipleInputs.addInputPath(job, new Path(args[1]), TextInputFormat.class, PRMapper.class);

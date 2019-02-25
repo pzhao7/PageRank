@@ -11,7 +11,7 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 
 
 import java.io.IOException;
-import java.text.DecimalFormat;
+// import java.text.DecimalFormat;
 
 public class UnitSum {
 
@@ -20,8 +20,7 @@ public class UnitSum {
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
 
-            //input format: toPage\t unitMultiplication, key \t value is the default format settings
-            //target: pass to reducer
+            //input format: toPage\t unitMultiplication, key + \t + value is the default format settings
             String[] toIdsubPr = value.toString().trim().split("\t");
             context.write(new Text(toIdsubPr[0]), new Text(toIdsubPr[1]));
         }
@@ -31,11 +30,10 @@ public class UnitSum {
 
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
-            // input Id\t PRN-1
+            // input: Id\t PR N-1
             String[] prPre = value.toString().trim().split("\t");
             context.write(new Text(prPre[0]), new Text( prPre[1] + "=" + "pre" ));
 
-            // context.getCurrentValue();
         }
     }
 
@@ -46,7 +44,7 @@ public class UnitSum {
         @Override
         public void setup(Context context){
             Configuration conf = context.getConfiguration();
-
+            // conf.get(String), did not have getDouble() why?
             beta = Double.parseDouble(conf.get("beta", "0.2"));
         }
 
@@ -54,9 +52,7 @@ public class UnitSum {
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
 
-           //input key = toPage value = <unitMultiplication>
-            //target: sum!
-            // double beta = 0.8;
+            //input key = toPage value = <unitMultiplication(fromId1), unitMultiplication(fromId2) ... PR N-1 >
             double sum =0.0;
             for (Text value: values){
 
@@ -94,13 +90,16 @@ public class UnitSum {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(DoubleWritable.class);
 
+        // unitState N-1, before summation
         MultipleInputs.addInputPath(job, new Path(args[0]), TextInputFormat.class, PassMapper.class);
+        // PR N-1 from previous iteration
         MultipleInputs.addInputPath(job, new Path(args[1]), TextInputFormat.class, PRpreMapper.class);
 
-        // unitState N-1, before summation
-        //FileInputFormat.addInputPath(job, new Path(args[0]));
-        // PR N-1
-        //FileInputFormat.addInputPath(job, new Path(args[1]));
+        /*
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileInputFormat.addInputPath(job, new Path(args[1]));
+        not the correct way to define input when you have multiplyInputs
+        */
         // output PR N
         FileOutputFormat.setOutputPath(job, new Path(args[3]));
 
